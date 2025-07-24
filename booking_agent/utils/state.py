@@ -25,3 +25,6 @@ class BookingState(TypedDict):
     validation_errors: List[str]
     booking_result: Optional[dict]
     thread_id: str
+    contact_id: Optional[str]
+    conversation_id: Optional[str]
+    selected_slot: Optional[dict]

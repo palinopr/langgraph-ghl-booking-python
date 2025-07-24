@@ -292,6 +292,51 @@ class GHLClient:
                     })
                 
                 return default_slots
+    
+    @traceable(name="ghl_send_message", run_type="tool")
+    async def send_message(
+        self,
+        contact_id: str,
+        message: str,
+        conversation_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Send a message to a contact via GHL conversations API.
+        
+        Args:
+            contact_id: GHL contact ID
+            message: Message text to send
+            conversation_id: Optional conversation ID (creates new if not provided)
+            
+        Returns:
+            Message response from GHL
+        """
+        url = f"{self.base_url}/conversations/messages"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Version": "2021-07-28"
+        }
+        
+        # Create message payload
+        message_data = {
+            "type": "SMS",
+            "contactId": contact_id,
+            "message": message,
+            "locationId": self.location_id
+        }
+        
+        if conversation_id:
+            message_data["conversationId"] = conversation_id
+            
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=message_data, headers=headers) as resp:
+                if resp.status in [200, 201]:
+                    return await resp.json()
+                else:
+                    error_text = await resp.text()
+                    # Log error but don't fail - webhook response is backup
+                    print(f"Failed to send GHL message: {resp.status} - {error_text}")
+                    return {"error": f"Failed to send message: {resp.status}"}
 
 
 # Helper functions for nodes to use

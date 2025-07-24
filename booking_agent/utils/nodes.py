@@ -12,6 +12,37 @@ from booking_agent.utils.state import BookingState
 from booking_agent.utils.tools import book_appointment, GHLClient
 
 
+async def send_ghl_message(state: BookingState, message: str) -> None:
+    """Send message via GHL API if we have contact information."""
+    try:
+        # Get contact_id if available
+        contact_id = state.get("contact_id")
+        if not contact_id:
+            # Try to create contact if we have phone
+            phone = state.get("thread_id", "").replace("whatsapp:", "")
+            if phone and phone != "default":
+                ghl_client = GHLClient()
+                # Create minimal contact to get ID
+                contact = await ghl_client.create_contact(
+                    name=state.get("customer_name", "WhatsApp User"),
+                    phone=phone,
+                    tags=["whatsapp_conversation"]
+                )
+                contact_id = contact.get("id")
+        
+        # Send message if we have contact_id
+        if contact_id:
+            ghl_client = GHLClient()
+            await ghl_client.send_message(
+                contact_id=contact_id,
+                message=message,
+                conversation_id=state.get("conversation_id")
+            )
+    except Exception as e:
+        # Log error but don't fail - webhook response is backup
+        print(f"Error sending GHL message: {str(e)}")
+
+
 # Load business configuration
 def load_config() -> Dict[str, Any]:
     """Load business configuration from YAML file."""
@@ -51,10 +82,12 @@ async def triage_node(state: BookingState) -> Dict[str, Any]:
     # Spam detection
     spam_keywords = ["crypto", "investment", "viagra", "casino", "lottery", "prize"]
     if any(keyword in last_message for keyword in spam_keywords):
+        response_message = "Sorry, I can only help with fitness coaching appointments."
+        await send_ghl_message(state, response_message)
         return {
             "is_spam": True,
             "current_step": "complete",
-            "messages": messages + [AIMessage(content="Sorry, I can only help with fitness coaching appointments.")]
+            "messages": messages + [AIMessage(content=response_message)]
         }
     
     # Check for booking intent
@@ -68,10 +101,12 @@ async def triage_node(state: BookingState) -> Dict[str, Any]:
             "current_step": "collect"
         }
     else:
+        response_message = "I'm here to help you book a fitness consultation. Would you like to schedule an appointment?"
+        await send_ghl_message(state, response_message)
         return {
             "is_spam": True,
             "current_step": "complete",
-            "messages": messages + [AIMessage(content="I'm here to help you book a fitness consultation. Would you like to schedule an appointment?")]
+            "messages": messages + [AIMessage(content=response_message)]
         }
 
 
@@ -168,6 +203,7 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
     if not last_human_msg:
         # First interaction - send greeting
         greeting = get_response_template("greeting", language)
+        await send_ghl_message(state, greeting)
         return {
             "messages": messages + [AIMessage(content=greeting)],
             "collection_step": "name",
@@ -294,6 +330,7 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
                 next_step = "day"
                 preferred_day = None  # Reset day selection
             
+            await send_ghl_message(state, response_text)
             return {
                 "messages": messages + [AIMessage(content=response_text)],
                 "customer_name": customer_name,
@@ -406,6 +443,7 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
                 response_text = template.format(day=preferred_day, times=times_display)
     
     # Return updated state with response
+    await send_ghl_message(state, response_text)
     return {
         "messages": messages + [AIMessage(content=response_text)],
         "customer_name": customer_name,
@@ -470,6 +508,7 @@ async def validate_node(state: BookingState) -> Dict[str, Any]:
     if validation_errors:
         # Send validation errors and go back to collect
         error_message = f"I notice a few things: {', '.join(validation_errors)}. Could you help me with this information?"
+        await send_ghl_message(state, error_message)
         return {
             "messages": messages + [AIMessage(content=error_message)],
             "validation_errors": validation_errors,
@@ -542,13 +581,20 @@ async def booking_node(state: BookingState) -> Dict[str, Any]:
                     email=customer_email,
                     goal=customer_goal
                 )
+            
+            # Store contact_id for future messages
+            contact_id = result.get("contact", {}).get("id")
+            
+            await send_ghl_message(state, confirmation_message)
             return {
                 "messages": messages + [AIMessage(content=confirmation_message)],
                 "booking_result": result,
+                "contact_id": contact_id,
                 "current_step": "complete"
             }
         else:
             error_message = f"I'm having trouble booking your appointment: {result.get('error', 'Unknown error')}. Let me try again or connect you with our team."
+            await send_ghl_message(state, error_message)
             return {
                 "messages": messages + [AIMessage(content=error_message)],
                 "booking_result": result,
@@ -557,6 +603,7 @@ async def booking_node(state: BookingState) -> Dict[str, Any]:
     except Exception as e:
         # Handle any booking errors
         error_message = "I encountered an issue while booking your appointment. Our team will reach out to you directly to complete the booking."
+        await send_ghl_message(state, error_message)
         return {
             "messages": messages + [AIMessage(content=error_message)],
             "booking_result": {"success": False, "error": str(e)},

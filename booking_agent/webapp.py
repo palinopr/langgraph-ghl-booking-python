@@ -89,22 +89,46 @@ async def webhook_handler(
             "customer_name": None,
             "customer_goal": None,
             "customer_pain_point": None,
-            "customer_budget": None,
+            "customer_budget": 0,  # Default to 0 instead of None
             "customer_email": None,
             "preferred_day": None,
             "preferred_time": None,
-            "available_slots": None,
+            "available_slots": [],  # Default to empty list instead of None
             "collection_step": None,
             "language": None,
             "current_step": "triage",
             "is_spam": False,
             "validation_errors": [],
-            "booking_result": None
+            "booking_result": None,
+            "contact_id": None,
+            "conversation_id": webhook_data.get("conversationId"),
+            "selected_slot": None
         }
         
-        # Invoke workflow
-        config = {"configurable": {"thread_id": thread_id}}
-        result = await booking_workflow.ainvoke(initial_state, config)
+        # Invoke workflow with recursion limit and streaming
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 50  # Increase recursion limit for conversational flow
+        }
+        
+        # Log initial state for debugging
+        logger.info(f"Initial state current_step: {initial_state['current_step']}")
+        
+        # Stream results to see what's happening
+        results = []
+        async for chunk in booking_workflow.astream(initial_state, config):
+            logger.info(f"Workflow chunk: {list(chunk.keys())}")
+            results.append(chunk)
+            if len(results) > 10:  # Safety check
+                logger.warning("Too many chunks, breaking")
+                break
+        
+        # Get final result
+        result = initial_state.copy()
+        for chunk in results:
+            for node, node_result in chunk.items():
+                if node_result:
+                    result.update(node_result)
         
         # Extract response from result
         response_message = "Message received and processed"
