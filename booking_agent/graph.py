@@ -14,10 +14,16 @@ def route_from_triage(state: BookingState) -> Literal["collect", "END"]:
     return "collect"
 
 
-def route_from_collect(state: BookingState) -> Literal["collect", "validate"]:
+def route_from_collect(state: BookingState) -> Literal["collect", "validate", "END"]:
     """Route from collect node based on current step."""
     if state.get("current_step") == "validate":
         return "validate"
+    
+    # Check if we're waiting for user input (last message is from AI)
+    messages = state.get("messages", [])
+    if messages and hasattr(messages[-1], 'type') and messages[-1].type == "assistant":
+        return END  # Wait for user response
+    
     return "collect"  # Keep collecting
 
 
@@ -63,13 +69,14 @@ def create_booking_workflow():
         }
     )
     
-    # From collect, either keep collecting or go to validate
+    # From collect, either keep collecting, go to validate, or end to wait for user
     workflow.add_conditional_edges(
         "collect",
         route_from_collect,
         {
             "collect": "collect",
-            "validate": "validate"
+            "validate": "validate",
+            END: END
         }
     )
     

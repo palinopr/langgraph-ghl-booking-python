@@ -200,7 +200,11 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
             last_human_msg = msg.content
             break
     
-    if not last_human_msg:
+    
+    # Check if we've already sent a greeting (to avoid infinite loop)
+    has_ai_response = any(hasattr(msg, 'type') and msg.type == "assistant" for msg in messages)
+    
+    if not last_human_msg or (collection_step == "greeting" and not has_ai_response):
         # First interaction - send greeting
         greeting = get_response_template("greeting", language)
         await send_ghl_message(state, greeting)
@@ -227,7 +231,7 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
             response_text = template.format(name=customer_name)
         else:
             # Ask again for name
-            response_text = get_response_template("greeting", language)
+            response_text = get_response_template("name", language)
             next_step = "name"
     
     elif collection_step == "goal" and customer_name and not customer_goal:
