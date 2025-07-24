@@ -5,6 +5,7 @@ This FastAPI server receives webhooks from GoHighLevel and forwards them
 to LangGraph Cloud for processing via the API.
 """
 import os
+import json
 import logging
 import httpx
 import asyncio
@@ -150,7 +151,18 @@ async def call_langgraph_api(webhook_request: WebhookRequest) -> Dict:
                 
                 if response.status_code == 200:
                     logger.info("Successfully called LangGraph API")
-                    return {"success": True, "data": response.json()}
+                    
+                    # Handle streaming response
+                    chunks = []
+                    async for line in response.aiter_lines():
+                        if line.strip():
+                            try:
+                                chunk_data = json.loads(line)
+                                chunks.append(chunk_data)
+                            except json.JSONDecodeError:
+                                logger.debug(f"Non-JSON line: {line}")
+                    
+                    return {"success": True, "data": chunks, "streaming": True}
                 elif response.status_code != 403:
                     logger.error(f"LangGraph API error: {response.status_code} - {response.text}")
                     return {"success": False, "error": response.text}
@@ -188,14 +200,21 @@ async def webhook_handler(
         # Extract response message from LangGraph result
         response_message = "Thank you! I'm processing your request and will get back to you shortly."
         
-        # Try to extract actual response from stream
-        if "data" in result and isinstance(result["data"], dict):
-            # Handle streamed response format
-            messages = result["data"].get("messages", [])
-            for msg in reversed(messages):
-                if msg.get("type") == "ai" and msg.get("content"):
-                    response_message = msg["content"]
-                    break
+        # Handle streaming response
+        if result.get("streaming") and isinstance(result["data"], list):
+            # Look through all chunks for the final state
+            for chunk in result["data"]:
+                if isinstance(chunk, dict):
+                    # Check if this chunk has messages
+                    messages = chunk.get("messages", [])
+                    for msg in reversed(messages):
+                        if isinstance(msg, dict) and msg.get("type") == "ai" and msg.get("content"):
+                            response_message = msg["content"]
+                            break
+                    
+                    # Also check for booking result
+                    if chunk.get("booking_result") and chunk["booking_result"].get("success"):
+                        response_message = chunk["booking_result"].get("message", response_message)
         
         return WebhookResponse(
             status="success",
