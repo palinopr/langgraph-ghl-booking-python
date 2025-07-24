@@ -3,8 +3,8 @@ from typing import Literal
 from langgraph.graph import StateGraph, START, END
 from langsmith import traceable
 
-from .utils.state import BookingState
-from .utils.nodes import triage_node, collect_node, validate_node, booking_node
+from booking_agent.utils.state import BookingState
+from booking_agent.utils.nodes import triage_node, collect_node, validate_node, booking_node
 
 
 def route_from_triage(state: BookingState) -> Literal["collect", "END"]:

@@ -12,14 +12,14 @@ from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 import uvicorn
 
-from .models import (
+from api.models import (
     WebhookRequest,
     WebhookResponse,
     HealthResponse,
     MetricsResponse,
     ErrorResponse
 )
-from .middleware import setup_middleware, verify_webhook_signature
+from api.middleware import setup_middleware, verify_webhook_signature
 
 # Configure logging
 logging.basicConfig(

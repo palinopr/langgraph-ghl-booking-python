@@ -7,8 +7,8 @@ from langsmith import traceable
 import yaml
 import os
 
-from .state import BookingState
-from .tools import book_appointment, GHLClient
+from booking_agent.utils.state import BookingState
+from booking_agent.utils.tools import book_appointment, GHLClient
 
 
 # Load business configuration

@@ -1,7 +1,7 @@
 """WhatsApp Booking Agent using LangGraph."""
-from .graph import booking_graph, create_booking_workflow
-from .utils.state import BookingState
-from .utils.tools import GHLClient, book_appointment
+from booking_agent.graph import booking_graph, create_booking_workflow
+from booking_agent.utils.state import BookingState
+from booking_agent.utils.tools import GHLClient, book_appointment
 
 __all__ = [
     "booking_graph",
