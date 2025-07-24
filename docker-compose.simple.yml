@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: ghl-booking-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - PYTHONPATH=/app
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-test}
+      - GHL_API_KEY=${GHL_API_KEY:-test_key}
+      - GHL_LOCATION_ID=${GHL_LOCATION_ID:-test_location}
+      - GHL_WEBHOOK_SECRET=${GHL_WEBHOOK_SECRET:-test_secret}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - NODE_ENV=${NODE_ENV:-development}
+    volumes:
+      # Mount source code for hot reload in development
+      - ./api:/app/api:ro
+      - ./booking_agent:/app/booking_agent:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
