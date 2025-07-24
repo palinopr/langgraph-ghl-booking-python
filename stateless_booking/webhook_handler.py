@@ -6,16 +6,9 @@ import os
 import logging
 from typing import Dict, Any
 from langsmith import traceable
-import langsmith
 
 from .ghl_state_manager import GHLStateManager
 from .message_processor import MessageProcessor
-
-# Initialize LangSmith tracer globally
-langsmith.configure(
-    api_key=os.getenv("LANGSMITH_API_KEY"),
-    project=os.getenv("LANGSMITH_PROJECT", "whatsapp-booking")
-)
 
 logger = logging.getLogger(__name__)
 
