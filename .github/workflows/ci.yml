@@ -10,7 +10,6 @@ on:
 env:
   PYTHON_VERSION: '3.11'
   DOCKER_IMAGE: ghcr.io/${{ github.repository }}
-  CACHE_KEY: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
 
 jobs:
   lint:
@@ -28,7 +27,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ env.CACHE_KEY }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       
