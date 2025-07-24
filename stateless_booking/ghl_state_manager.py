@@ -7,6 +7,7 @@ import logging
 import aiohttp
 from typing import Dict, Any, Optional
 from datetime import datetime
+from langsmith import traceable
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.ghl_field_mapping import CUSTOM_FIELD_IDS
@@ -34,6 +35,7 @@ class GHLStateManager:
         # Field ID mapping
         self.field_ids = CUSTOM_FIELD_IDS
     
+    @traceable(name="get_or_create_contact", run_type="tool")
     async def get_or_create_contact(self, phone: str) -> Dict[str, Any]:
         """Get existing contact or create new one."""
         async with aiohttp.ClientSession() as session:
@@ -91,6 +93,7 @@ class GHLStateManager:
                     error = await resp.text()
                     raise Exception(f"Failed to create contact: {resp.status} - {error}")
     
+    @traceable(name="get_conversation_state", run_type="tool")
     async def get_conversation_state(self, contact_id: str) -> Dict[str, Any]:
         """Get current conversation state from contact custom fields."""
         async with aiohttp.ClientSession() as session:
@@ -126,6 +129,7 @@ class GHLStateManager:
                     logger.error(f"Failed to get contact: {resp.status}")
                     return {"booking_step": "greeting"}
     
+    @traceable(name="update_conversation_state", run_type="tool")
     async def update_conversation_state(self, contact_id: str, updates: Dict[str, Any]) -> bool:
         """Update contact custom fields with new state."""
         async with aiohttp.ClientSession() as session:
@@ -150,6 +154,7 @@ class GHLStateManager:
                     logger.error(f"Failed to update contact: {resp.status} - {error}")
                     return False
     
+    @traceable(name="send_message", run_type="tool")
     async def send_message(self, phone: str, message: str) -> bool:
         """Send message via GHL (placeholder - implement based on GHL SMS/WhatsApp API)."""
         # In production, this would send via GHL's messaging API

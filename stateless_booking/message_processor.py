@@ -4,12 +4,14 @@ Each step processes ONE message and returns ONE response.
 """
 import re
 from typing import Dict, Any
+from langsmith import traceable
 from .response_templates import get_template
 
 
 class MessageProcessor:
     """Process messages based on current conversation step."""
     
+    @traceable(name="process_message", run_type="chain")
     def process_message(self, message: str, step: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a single message based on current step.
@@ -42,6 +44,7 @@ class MessageProcessor:
                 "response": get_template("conversation_complete", language)
             }
     
+    @traceable(name="detect_language", run_type="tool")
     def _process_greeting(self, message: str, language: str) -> Dict[str, Any]:
         """Process first message - detect language and greet."""
         # Detect language
@@ -54,6 +57,7 @@ class MessageProcessor:
             "response": get_template("greeting", detected_lang)
         }
     
+    @traceable(name="process_name", run_type="tool")
     def _process_name(self, message: str, language: str) -> Dict[str, Any]:
         """Extract name from message."""
         # Simple name extraction (in production, use NER or LLM)
@@ -71,6 +75,7 @@ class MessageProcessor:
                 "response": get_template("ask_name_again", language)
             }
     
+    @traceable(name="process_goal", run_type="tool")
     def _process_goal(self, message: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Extract business goal."""
         goal = message.strip()[:200]  # Limit length
@@ -87,6 +92,7 @@ class MessageProcessor:
                 "response": get_template("ask_goal_again", language)
             }
     
+    @traceable(name="process_pain", run_type="tool")
     def _process_pain(self, message: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Extract pain point."""
         pain = message.strip()[:200]
@@ -103,6 +109,7 @@ class MessageProcessor:
                 "response": get_template("ask_pain_again", language)
             }
     
+    @traceable(name="process_budget", run_type="tool")
     def _process_budget(self, message: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Extract and validate budget."""
         # Extract number from message
@@ -130,6 +137,7 @@ class MessageProcessor:
                 "response": get_template("ask_budget_again", language)
             }
     
+    @traceable(name="process_email", run_type="tool")
     def _process_email(self, message: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Extract and validate email."""
         email_regex = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
@@ -148,6 +156,7 @@ class MessageProcessor:
                 "response": get_template("ask_email_again", language)
             }
     
+    @traceable(name="process_day", run_type="tool")
     def _process_day(self, message: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Extract preferred day."""
         day_map = {
@@ -172,6 +181,7 @@ class MessageProcessor:
             "response": get_template("ask_day_again", language)
         }
     
+    @traceable(name="process_time", run_type="tool")
     def _process_time(self, message: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
         """Extract time and book appointment."""
         # Simple time extraction

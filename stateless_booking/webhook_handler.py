@@ -2,15 +2,25 @@
 Stateless webhook handler - processes ONE message and exits.
 NO LOOPS, NO RECURSION, NO WAITING.
 """
+import os
 import logging
 from typing import Dict, Any
+from langsmith import traceable
+import langsmith
 
 from .ghl_state_manager import GHLStateManager
 from .message_processor import MessageProcessor
 
+# Initialize LangSmith tracer globally
+langsmith.configure(
+    api_key=os.getenv("LANGSMITH_API_KEY"),
+    project=os.getenv("LANGSMITH_PROJECT", "whatsapp-booking")
+)
+
 logger = logging.getLogger(__name__)
 
 
+@traceable(name="process_webhook_core", run_type="chain")
 async def _process_webhook_core(phone: str, message: str, ghl: GHLStateManager, 
                                processor: MessageProcessor) -> Dict[str, Any]:
     """Core webhook processing logic - extracted to keep functions under 40 lines."""
@@ -42,6 +52,7 @@ async def _process_webhook_core(phone: str, message: str, ghl: GHLStateManager,
     }
 
 
+@traceable(name="handle_webhook_message", run_type="chain")
 async def handle_webhook_message(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Handle a single webhook message atomically.
