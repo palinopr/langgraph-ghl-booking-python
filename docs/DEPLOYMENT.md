@@ -13,7 +13,7 @@ This guide covers multiple deployment options for the WhatsApp Booking System, f
    - [Docker](#docker-deployment)
    - [AWS Lambda](#aws-lambda)
    - [Google Cloud Run](#google-cloud-run)
-   - [Railway/Render](#paas-platforms)
+   - [Render](#paas-platforms)
    - [Kubernetes](#kubernetes)
 4. [Production Checklist](#production-checklist)
 5. [Monitoring & Maintenance](#monitoring--maintenance)
@@ -388,27 +388,6 @@ gcloud run domain-mappings create \
 ```
 
 ### PaaS Platforms
-
-#### Railway
-
-1. **Connect Repository**:
-   ```bash
-   railway login
-   railway link
-   ```
-
-2. **Configure Environment**:
-   ```bash
-   railway vars set OPENAI_API_KEY=$OPENAI_API_KEY
-   railway vars set GHL_API_KEY=$GHL_API_KEY
-   railway vars set GHL_LOCATION_ID=$GHL_LOCATION_ID
-   railway vars set GHL_WEBHOOK_SECRET=$GHL_WEBHOOK_SECRET
-   ```
-
-3. **Deploy**:
-   ```bash
-   railway up
-   ```
 
 #### Render
 
