@@ -106,6 +106,7 @@ async def call_langgraph_api(webhook_request: WebhookRequest) -> Dict:
     """
     async with httpx.AsyncClient() as client:
         # Prepare the input for LangGraph
+        # Use the standard format that LangGraph expects
         langgraph_input = {
             "input": {
                 "messages": [
@@ -115,7 +116,6 @@ async def call_langgraph_api(webhook_request: WebhookRequest) -> Dict:
                     }
                 ],
                 "thread_id": webhook_request.conversationId,
-                "customer_name": webhook_request.name,
                 "customer_phone": webhook_request.phone
             },
             "config": {
@@ -123,8 +123,7 @@ async def call_langgraph_api(webhook_request: WebhookRequest) -> Dict:
                     "thread_id": webhook_request.conversationId
                 }
             },
-            "assistant_id": ASSISTANT_ID,
-            "stream_mode": "values"
+            "assistant_id": ASSISTANT_ID
         }
         
         headers = {
@@ -143,7 +142,7 @@ async def call_langgraph_api(webhook_request: WebhookRequest) -> Dict:
                 logger.info(f"Calling LangGraph API with {auth_header} header...")
                 
                 response = await client.post(
-                    f"{LANGGRAPH_URL}/runs/stream",
+                    f"{LANGGRAPH_URL}/runs/invoke",
                     json=langgraph_input,
                     headers=headers,
                     timeout=30.0
@@ -152,17 +151,9 @@ async def call_langgraph_api(webhook_request: WebhookRequest) -> Dict:
                 if response.status_code == 200:
                     logger.info("Successfully called LangGraph API")
                     
-                    # Handle streaming response
-                    chunks = []
-                    async for line in response.aiter_lines():
-                        if line.strip():
-                            try:
-                                chunk_data = json.loads(line)
-                                chunks.append(chunk_data)
-                            except json.JSONDecodeError:
-                                logger.debug(f"Non-JSON line: {line}")
-                    
-                    return {"success": True, "data": chunks, "streaming": True}
+                    # Handle non-streaming response
+                    result = response.json()
+                    return {"success": True, "data": result, "streaming": False}
                 elif response.status_code != 403:
                     logger.error(f"LangGraph API error: {response.status_code} - {response.text}")
                     return {"success": False, "error": response.text}
@@ -200,21 +191,21 @@ async def webhook_handler(
         # Extract response message from LangGraph result
         response_message = "Thank you! I'm processing your request and will get back to you shortly."
         
-        # Handle streaming response
-        if result.get("streaming") and isinstance(result["data"], list):
-            # Look through all chunks for the final state
-            for chunk in result["data"]:
-                if isinstance(chunk, dict):
-                    # Check if this chunk has messages
-                    messages = chunk.get("messages", [])
-                    for msg in reversed(messages):
-                        if isinstance(msg, dict) and msg.get("type") == "ai" and msg.get("content"):
-                            response_message = msg["content"]
-                            break
-                    
-                    # Also check for booking result
-                    if chunk.get("booking_result") and chunk["booking_result"].get("success"):
-                        response_message = chunk["booking_result"].get("message", response_message)
+        # Handle non-streaming response
+        if not result.get("streaming") and isinstance(result["data"], dict):
+            # Extract the output from the response
+            output = result["data"].get("output", {})
+            
+            # Look for messages in the output
+            messages = output.get("messages", [])
+            for msg in reversed(messages):
+                if isinstance(msg, dict) and msg.get("type") == "ai" and msg.get("content"):
+                    response_message = msg["content"]
+                    break
+            
+            # Also check for booking result
+            if output.get("booking_result") and output["booking_result"].get("success"):
+                response_message = output["booking_result"].get("message", response_message)
         
         return WebhookResponse(
             status="success",

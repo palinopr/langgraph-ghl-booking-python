@@ -12,5 +12,7 @@ COPY bridge_server.py .
 # Expose port (Railway will set PORT env var)
 EXPOSE 8000
 
-# Run the bridge server
-CMD ["python", "bridge_server.py"]
+# Run the bridge server with uvicorn
+# Railway sets PORT env var, but CMD exec form doesn't expand variables
+# So we use shell form to allow variable expansion
+CMD uvicorn bridge_server:app --host 0.0.0.0 --port ${PORT:-8000}

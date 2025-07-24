@@ -3,5 +3,8 @@
   "graphs": {
     "agent": "./booking_agent/graph.py:booking_graph"
   },
-  "env": ".env"
+  "env": ".env",
+  "http": {
+    "app": "./booking_agent/webapp.py:app"
+  }
 }
