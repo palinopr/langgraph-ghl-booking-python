@@ -60,8 +60,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="WhatsApp Booking Webhook",
-    description="Webhook server for automated WhatsApp appointment booking",
-    version="1.0.0",
+    description="Webhook server for automated WhatsApp appointment booking - Stateless Architecture",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -154,7 +154,7 @@ async def health_check():
     """
     return HealthResponse(
         status="ok",
-        version="1.0.0"
+        version="2.0.0"
     )
 
 
@@ -181,7 +181,8 @@ async def root():
     """
     return {
         "service": "WhatsApp Booking Webhook",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "architecture": "stateless",
         "endpoints": {
             "webhook": "/webhook",
             "health": "/health",
