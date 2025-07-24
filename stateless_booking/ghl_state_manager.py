@@ -37,16 +37,20 @@ class GHLStateManager:
     async def get_or_create_contact(self, phone: str) -> Dict[str, Any]:
         """Get existing contact or create new one."""
         async with aiohttp.ClientSession() as session:
-            # Search for existing contact
-            search_url = f"{self.base_url}/contacts/search"
-            params = {"locationId": self.location_id, "query": phone}
+            # Search for existing contact by phone
+            search_url = f"{self.base_url}/contacts/search/duplicate"
+            params = {
+                "locationId": self.location_id,
+                "number": phone  # Use 'number' param for phone search
+            }
             
             async with session.get(search_url, headers=self.headers, params=params) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    contacts = data.get("contacts", [])
-                    if contacts:
-                        return contacts[0]  # Return existing contact
+                    contact = data.get("contact")
+                    if contact:
+                        logger.info(f"Found existing contact: {contact.get('id')}")
+                        return contact
             
             # Create new contact
             create_url = f"{self.base_url}/contacts/"
@@ -63,6 +67,26 @@ class GHLStateManager:
                 if resp.status in [200, 201]:
                     data = await resp.json()
                     return data.get("contact", data)
+                elif resp.status == 400:
+                    # Handle duplicate contact error
+                    error_data = await resp.json()
+                    error_msg = error_data.get("message", "")
+                    
+                    # Extract contactId from error message if it exists
+                    if "contactId:" in error_msg:
+                        contact_id = error_msg.split("contactId:")[1].strip()
+                        logger.info(f"Contact already exists with ID: {contact_id}")
+                        
+                        # Fetch the existing contact
+                        get_url = f"{self.base_url}/contacts/{contact_id}"
+                        async with session.get(get_url, headers=self.headers) as get_resp:
+                            if get_resp.status == 200:
+                                data = await get_resp.json()
+                                return data.get("contact", data)
+                    
+                    # If we can't extract ID, log and raise
+                    logger.error(f"Duplicate contact but couldn't extract ID: {error_msg}")
+                    raise Exception(f"Contact exists but couldn't retrieve: {error_msg}")
                 else:
                     error = await resp.text()
                     raise Exception(f"Failed to create contact: {resp.status} - {error}")
