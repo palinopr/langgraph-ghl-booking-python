@@ -8,12 +8,28 @@ from datetime import datetime
 
 class WebhookRequest(BaseModel):
     """
-    Request model for webhook endpoint.
+    Request model for webhook endpoint - matches GHL webhook format.
     """
+    # Required fields from GHL
     message: str = Field(..., description="The incoming WhatsApp message")
     phone: str = Field(..., description="Phone number of the sender")
-    thread_id: str = Field(..., description="Unique thread identifier for conversation tracking")
-    signature: Optional[str] = Field(None, description="Optional signature for request verification")
+    conversationId: str = Field(..., description="GHL conversation ID")
+    
+    # Optional fields from GHL
+    type: Optional[str] = Field(None, description="Message type (e.g., InboundMessage)")
+    locationId: Optional[str] = Field(None, description="GHL location ID")
+    contactId: Optional[str] = Field(None, description="GHL contact ID")
+    name: Optional[str] = Field(None, description="Contact name")
+    email: Optional[str] = Field(None, description="Contact email")
+    messageType: Optional[str] = Field(None, description="Message type (e.g., WhatsApp)")
+    direction: Optional[str] = Field(None, description="Message direction")
+    dateAdded: Optional[str] = Field(None, description="Message timestamp")
+    
+    # For backward compatibility
+    @property
+    def thread_id(self) -> str:
+        """Map conversationId to thread_id for internal use."""
+        return self.conversationId
 
 
 class WebhookResponse(BaseModel):

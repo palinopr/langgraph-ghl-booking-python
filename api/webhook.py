@@ -99,10 +99,10 @@ async def webhook_handler(
     metrics["requests"] += 1
     
     try:
-        # Verify signature if enabled
-        if not await verify_webhook_signature(request, body, webhook_request.signature):
+        # Verify webhook secret if enabled
+        if not await verify_webhook_signature(request, body):
             metrics["errors"] += 1
-            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+            raise HTTPException(status_code=401, detail="Invalid webhook secret")
         
         logger.info(f"Processing webhook for thread {webhook_request.thread_id}")
         

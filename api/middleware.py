@@ -34,43 +34,37 @@ async def verify_webhook_signature(
     signature: Optional[str] = None
 ) -> bool:
     """
-    Verify webhook signature for security.
+    Verify webhook security via static secret.
+    
+    GHL sends a static secret in x-webhook-secret header rather than a signature.
     
     Args:
         request: FastAPI request object
-        body: Raw request body
-        signature: Signature from header or body
+        body: Raw request body (not used for GHL)
+        signature: Not used for GHL
         
     Returns:
-        bool: True if signature is valid or verification is disabled
+        bool: True if secret matches or verification is disabled
     """
     webhook_secret = os.getenv("GHL_WEBHOOK_SECRET")
     
     # If no secret is configured, skip verification (development mode)
     if not webhook_secret:
-        logger.warning("Webhook signature verification disabled (no secret configured)")
+        logger.warning("Webhook secret verification disabled (no secret configured)")
         return True
     
-    # Get signature from header if not in body
-    if not signature:
-        signature = request.headers.get("X-GHL-Signature") or request.headers.get("X-Webhook-Signature")
+    # GHL sends static secret in x-webhook-secret header
+    provided_secret = request.headers.get("x-webhook-secret")
     
-    if not signature:
-        logger.error("No signature provided for webhook verification")
+    if not provided_secret:
+        logger.error("No webhook secret provided in x-webhook-secret header")
         return False
     
-    # Calculate expected signature
-    expected_signature = hmac.new(
-        webhook_secret.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
-    
-    # Compare signatures
-    is_valid = hmac.compare_digest(signature, expected_signature)
+    # Simple secret comparison
+    is_valid = provided_secret == webhook_secret
     
     if not is_valid:
-        logger.error(f"Invalid webhook signature. Expected: {expected_signature[:10]}..., Got: {signature[:10]}...")
+        logger.error(f"Invalid webhook secret. Expected: {webhook_secret[:4]}..., Got: {provided_secret[:4]}...")
     
     return is_valid
 
