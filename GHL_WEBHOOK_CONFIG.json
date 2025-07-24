@@ -1,0 +1,21 @@
+{
+  "method": "POST",
+  "url": "https://ghl-python-booking-c30b52e8c48d5005b60fdf394ffbe3aa.us.langgraph.app/webhook",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-webhook-secret": "webhook-secret-123"
+  },
+  "body": {
+    "type": "InboundMessage",
+    "locationId": "{{location.id}}",
+    "contactId": "{{contact.id}}",
+    "message": "{{message.body}}",
+    "phone": "{{contact.phone}}",
+    "name": "{{contact.name}}",
+    "email": "{{contact.email}}",
+    "conversationId": "{{conversation.id}}",
+    "messageType": "WhatsApp",
+    "direction": "inbound",
+    "dateAdded": "{{message.dateAdded}}"
+  }
+}
