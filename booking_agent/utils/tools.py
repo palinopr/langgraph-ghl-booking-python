@@ -14,7 +14,7 @@ class GHLClient:
     def __init__(self, api_key: Optional[str] = None, location_id: Optional[str] = None):
         self.api_key = api_key or os.getenv("GHL_API_KEY")
         self.location_id = location_id or os.getenv("GHL_LOCATION_ID")
-        self.base_url = "https://rest.gohighlevel.com/v1"
+        self.base_url = "https://services.leadconnectorhq.com"
         
         if not self.api_key:
             raise ValueError("GHL_API_KEY is required")
@@ -44,7 +44,8 @@ class GHLClient:
         search_url = f"{self.base_url}/contacts/search?locationId={self.location_id}&query={phone}"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Version": "2021-07-28"
         }
         
         async with aiohttp.ClientSession() as session:
@@ -110,10 +111,11 @@ class GHLClient:
         Returns:
             Appointment data from GHL
         """
-        url = f"{self.base_url}/calendars/events"
+        url = f"{self.base_url}/calendars/events/appointments"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Version": "2021-07-28"
         }
         
         appointment_data = {
@@ -123,7 +125,7 @@ class GHLClient:
             "title": title,
             "startTime": start_time.isoformat(),
             "endTime": end_time.isoformat(),
-            "status": "confirmed"
+            "appointmentStatus": "confirmed"
         }
         
         if notes:
@@ -162,7 +164,8 @@ class GHLClient:
         url = f"{self.base_url}/calendars/{calendar_id}/free-slots"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Version": "2021-07-28"
         }
         
         params = {
@@ -201,6 +204,94 @@ class GHLClient:
                     "start": start_time,
                     "end": end_time
                 }
+    
+    @traceable(name="ghl_get_available_slots_for_day", run_type="tool")
+    async def get_available_slots_for_day(
+        self,
+        calendar_id: str,
+        day_name: str,
+        duration_minutes: int = 30
+    ) -> list[Dict[str, Any]]:
+        """Get all available appointment slots for a specific day.
+        
+        Args:
+            calendar_id: GHL calendar ID
+            day_name: Day name (Tuesday, Wednesday, Thursday, Friday)
+            duration_minutes: Appointment duration in minutes
+            
+        Returns:
+            List of available time slots with start/end times
+        """
+        # Map day names to weekday numbers
+        day_map = {
+            "tuesday": 1,
+            "wednesday": 2,
+            "thursday": 3,
+            "friday": 4
+        }
+        
+        target_weekday = day_map.get(day_name.lower())
+        if target_weekday is None:
+            return []
+        
+        # Get calendar availability
+        timezone = pytz.timezone("America/Los_Angeles")
+        now = datetime.now(timezone)
+        
+        # Find the next occurrence of the target day
+        days_ahead = (target_weekday - now.weekday()) % 7
+        if days_ahead == 0:  # If it's today, check if we're past business hours
+            if now.hour >= 17:  # Past 5 PM, go to next week
+                days_ahead = 7
+        
+        target_date = now + timedelta(days=days_ahead)
+        target_date = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        url = f"{self.base_url}/calendars/{calendar_id}/free-slots"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Version": "2021-07-28"
+        }
+        
+        params = {
+            "startDate": target_date.date().isoformat(),
+            "endDate": target_date.date().isoformat(),
+            "duration": duration_minutes,
+            "timezone": "America/Los_Angeles"
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, params=params) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    slots = data.get("slots", [])
+                    
+                    # Parse and format slots
+                    formatted_slots = []
+                    for slot in slots:
+                        start_time = datetime.fromisoformat(slot["startTime"])
+                        end_time = start_time + timedelta(minutes=duration_minutes)
+                        formatted_slots.append({
+                            "start": start_time,
+                            "end": end_time,
+                            "display": start_time.strftime("%I:%M %p")
+                        })
+                    
+                    return formatted_slots
+                
+                # Fallback: Return default business hours if API fails
+                default_slots = []
+                for hour in [9, 10, 11, 14, 15, 16]:  # 9 AM to 4 PM, skip lunch
+                    start_time = target_date.replace(hour=hour, minute=0)
+                    end_time = start_time + timedelta(minutes=duration_minutes)
+                    default_slots.append({
+                        "start": start_time,
+                        "end": end_time,
+                        "display": start_time.strftime("%I:%M %p")
+                    })
+                
+                return default_slots
 
 
 # Helper functions for nodes to use
@@ -210,6 +301,9 @@ async def book_appointment(
     customer_phone: str,
     customer_goal: str,
     customer_budget: float,
+    customer_email: str = None,
+    customer_pain_point: str = None,
+    selected_slot: Dict[str, Any] = None,
     ghl_client: Optional[GHLClient] = None
 ) -> Dict[str, Any]:
     """Complete booking process: create contact and book appointment.
@@ -231,12 +325,17 @@ async def book_appointment(
     contact = await ghl_client.create_contact(
         name=customer_name,
         phone=customer_phone,
+        email=customer_email,
         tags=["whatsapp_lead", "auto_booked"]
     )
     
-    # Find available slot (using default calendar from env)
+    # Use selected slot or find available slot
     calendar_id = os.getenv("GHL_CALENDAR_ID", "default_calendar")
-    slot = await ghl_client.find_available_slot(calendar_id)
+    
+    if selected_slot:
+        slot = selected_slot
+    else:
+        slot = await ghl_client.find_available_slot(calendar_id)
     
     if not slot:
         return {
@@ -245,18 +344,22 @@ async def book_appointment(
         }
     
     # Create appointment
+    notes = f"Goal: {customer_goal}\\nBudget: ${customer_budget}"
+    if customer_pain_point:
+        notes += f"\\nPain Point: {customer_pain_point}"
+    
     appointment = await ghl_client.create_appointment(
         contact_id=contact["id"],
         calendar_id=calendar_id,
         start_time=slot["start"],
         end_time=slot["end"],
-        title=f"Fitness Consultation - {customer_name}",
-        notes=f"Goal: {customer_goal}\\nBudget: ${customer_budget}"
+        title=f"AI Outlet Media Consultation - {customer_name}",
+        notes=notes
     )
     
     return {
         "success": True,
         "contact": contact,
         "appointment": appointment,
-        "message": f"Great! I've booked your fitness consultation for {slot['start'].strftime('%B %d at %I:%M %p')}. See you then!"
+        "message": f"Perfect! Your consultation is confirmed for {slot['start'].strftime('%A, %B %d at %I:%M %p')}. I'll send the details to {customer_email}. Looking forward to helping you {customer_goal}!"
     }

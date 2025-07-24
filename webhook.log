@@ -1,5 +1,5 @@
 /Users/jaimeortiz/Visual Studio/AI Outlet Media/langgraph-ghl-booking-python/api/webhook.py:37: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
   "start_time": datetime.utcnow()
-2025-07-24 09:18:21,369 - api.middleware - INFO - Middleware configured successfully
+2025-07-24 12:02:56,107 - api.middleware - INFO - Middleware configured successfully
 INFO:     Will watch for changes in these directories: ['/Users/jaimeortiz/Visual Studio/AI Outlet Media/langgraph-ghl-booking-python']
 ERROR:    [Errno 48] Address already in use
