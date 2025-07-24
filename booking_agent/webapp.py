@@ -1,4 +1,4 @@
-"""FastAPI webhook server integrated with LangGraph for WhatsApp booking system."""
+"""FastAPI webhook server with STATELESS handler for WhatsApp booking system."""
 import os
 import logging
 from datetime import datetime
@@ -7,7 +7,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
-from langchain_core.messages import HumanMessage
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from stateless_booking.webhook_handler import handle_webhook_message
 
 # Configure logging
 logging.basicConfig(
@@ -16,34 +18,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global workflow instance
-booking_workflow = None
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Manage application lifecycle - load workflow on startup.
+    Manage application lifecycle.
     """
-    global booking_workflow
-    logger.info("Starting WhatsApp Booking Webhook Server...")
-    
-    try:
-        from booking_agent.graph import create_booking_workflow
-        booking_workflow = create_booking_workflow()
-        logger.info("Workflow loaded successfully")
-    except ImportError as e:
-        logger.error(f"Failed to load workflow: {str(e)}")
-        raise
-    
+    logger.info("Starting WhatsApp Booking Webhook Server (STATELESS)...")
     yield
-    
     logger.info("Shutting down WhatsApp Booking Webhook Server...")
 
 # Create FastAPI app with lifespan management
 app = FastAPI(
-    title="WhatsApp Booking Webhook",
-    description="LangGraph-integrated webhook for automated WhatsApp appointment booking",
-    version="1.0.0",
+    title="WhatsApp Booking Webhook (STATELESS)",
+    description="Stateless webhook handler for automated WhatsApp appointment booking",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -53,13 +41,12 @@ async def webhook_handler(
     x_webhook_secret: str = Header(None, alias="x-webhook-secret")
 ):
     """
-    Handle incoming WhatsApp webhook messages.
+    Handle incoming WhatsApp webhook messages with STATELESS handler.
     
     This endpoint:
     1. Verifies the webhook secret
-    2. Converts the message to LangChain format
-    3. Processes through the LangGraph workflow
-    4. Returns a response
+    2. Processes ONE message atomically (NO LOOPS)
+    3. Returns a response and exits
     """
     # Verify webhook secret
     expected_secret = os.getenv("GHL_WEBHOOK_SECRET")
@@ -72,71 +59,24 @@ async def webhook_handler(
         webhook_data = await request.json()
         logger.info(f"Received webhook data: {webhook_data}")
         
-        # Extract message and thread ID from webhook data
-        # Handle different possible webhook formats
-        message = webhook_data.get("message") or webhook_data.get("text", "")
-        thread_id = webhook_data.get("thread_id") or webhook_data.get("phone") or "default"
-        phone = webhook_data.get("phone") or thread_id
-        
-        if not message:
-            logger.error("No message content in webhook data")
-            raise HTTPException(status_code=400, detail="No message content provided")
-        
-        # Create initial state with proper LangChain message format
-        initial_state = {
-            "messages": [HumanMessage(content=message)],
-            "thread_id": thread_id,
-            "customer_name": None,
-            "customer_goal": None,
-            "customer_pain_point": None,
-            "customer_budget": 0,  # Default to 0 instead of None
-            "customer_email": None,
-            "preferred_day": None,
-            "preferred_time": None,
-            "available_slots": [],  # Default to empty list instead of None
-            "collection_step": None,
-            "language": None,
-            "current_step": "triage",
-            "is_spam": False,
-            "validation_errors": [],
-            "booking_result": None,
-            "contact_id": None,
-            "conversation_id": webhook_data.get("conversationId"),
-            "selected_slot": None
+        # Prepare data for stateless handler
+        handler_data = {
+            "phone": webhook_data.get("phone", ""),
+            "message": webhook_data.get("message") or webhook_data.get("text", ""),
+            "conversationId": webhook_data.get("conversationId")
         }
         
-        # Invoke workflow with recursion limit and streaming
-        config = {
-            "configurable": {"thread_id": thread_id},
-            "recursion_limit": 50  # Increase recursion limit for conversational flow
-        }
+        logger.info(f"Processing with stateless handler: {handler_data}")
         
-        # Log initial state for debugging
-        logger.info(f"Initial state current_step: {initial_state['current_step']}")
+        # Process with STATELESS handler - NO LOOPS!
+        result = await handle_webhook_message(handler_data)
         
-        # Use invoke instead of astream to ensure complete execution
-        # This prevents GeneratorExit errors and ensures GHL messages are sent
-        logger.info("Invoking workflow synchronously...")
-        result = await booking_workflow.ainvoke(initial_state, config)
-        logger.info(f"Workflow completed with step: {result.get('current_step')}")
-        
-        # Extract response from result
-        response_message = "Message received and processed"
-        if result.get("messages"):
-            for msg in reversed(result["messages"]):
-                if hasattr(msg, "content") and msg.type == "ai":
-                    response_message = msg.content
-                    break
+        logger.info(f"Stateless handler result: {result}")
         
         # Return response
         return JSONResponse(
             status_code=200,
-            content={
-                "status": "success",
-                "message": response_message,
-                "thread_id": thread_id,
-                "booking_result": result.get("booking_result")
-            }
+            content=result
         )
         
     except HTTPException:
@@ -157,16 +97,16 @@ async def health_check():
     """Health check endpoint for monitoring."""
     return {
         "status": "ok",
-        "version": "1.0.0",
-        "workflow_loaded": booking_workflow is not None
+        "version": "2.0.0",
+        "handler": "stateless"
     }
 
 @app.get("/")
 async def root():
     """Root endpoint with API information."""
     return {
-        "service": "WhatsApp Booking Webhook (LangGraph)",
-        "version": "1.0.0",
+        "service": "WhatsApp Booking Webhook (STATELESS)",
+        "version": "2.0.0",
         "endpoints": {
             "webhook": "/webhook",
             "health": "/health"
