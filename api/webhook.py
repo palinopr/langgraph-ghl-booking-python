@@ -187,8 +187,11 @@ async def process_through_workflow(workflow, webhook_request: WebhookRequest) ->
         "booking_result": None
     }
     
-    # Invoke workflow
-    config = {"configurable": {"thread_id": webhook_request.thread_id}}
+    # Invoke workflow with increased recursion limit
+    config = {
+        "configurable": {"thread_id": webhook_request.thread_id},
+        "recursion_limit": 100  # Increased from default 50 to handle complex conversations
+    }
     result = await workflow.ainvoke(initial_state, config)
     
     # Extract response from result

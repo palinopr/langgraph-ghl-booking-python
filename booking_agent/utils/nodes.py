@@ -1,5 +1,6 @@
 """Workflow nodes for the booking agent."""
 import re
+import logging
 from typing import Dict, Any
 from datetime import datetime
 from langchain_core.messages import HumanMessage, AIMessage
@@ -10,6 +11,9 @@ import os
 
 from booking_agent.utils.state import BookingState
 from booking_agent.utils.tools import book_appointment, GHLClient
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 async def send_ghl_message(state: BookingState, message: str) -> None:
@@ -193,13 +197,21 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
     # Initialize LLM for extraction
     llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.3)
     
+    # Emergency brake: prevent infinite loops
+    if len(messages) > 20:  # Hard limit to prevent runaway conversations
+        logger.warning(f"Message limit exceeded ({len(messages)} messages), ending conversation")
+        return {
+            "messages": messages,
+            "current_step": "END",
+            "validation_errors": ["Maximum conversation length exceeded. Please start a new conversation."]
+        }
+    
     # Get last human message
     last_human_msg = None
     for msg in reversed(messages):
         if hasattr(msg, 'content') and msg.type == "human":
             last_human_msg = msg.content
             break
-    
     
     # Check if we've already sent a greeting (to avoid infinite loop)
     has_ai_response = any(hasattr(msg, 'type') and msg.type == "assistant" for msg in messages)
@@ -270,7 +282,7 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
             extracted_budget = float(response.content.strip())
             customer_budget = extracted_budget
             
-            if customer_budget >= 300:
+            if customer_budget and customer_budget >= 300:
                 next_step = "email"
                 response_text = get_response_template("email", language)
             else:
@@ -284,7 +296,7 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
             response_text = get_response_template("budget", language)
             next_step = "budget"
     
-    elif collection_step == "email" and customer_budget >= 300 and not customer_email:
+    elif collection_step == "email" and customer_budget and customer_budget >= 300 and not customer_email:
         # Extract email
         extraction_prompt = f"""Extract the email address from: "{last_human_msg}"
         Return ONLY the email or "none" if not found.
@@ -396,7 +408,7 @@ async def collect_node(state: BookingState) -> Dict[str, Any]:
     else:
         # All info collected or in unexpected state
         if all([customer_name, customer_goal, customer_pain_point, 
-                customer_budget >= 300, customer_email, preferred_day, preferred_time]):
+                customer_budget and customer_budget >= 300, customer_email, preferred_day, preferred_time]):
             return {
                 "messages": messages,
                 "customer_name": customer_name,
