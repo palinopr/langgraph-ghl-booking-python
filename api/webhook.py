@@ -49,14 +49,8 @@ async def lifespan(app: FastAPI):
     logger.info("Starting WhatsApp Booking Webhook Server...")
     metrics["start_time"] = datetime.utcnow()
     
-    # Import workflow dynamically to handle case where it's not yet created
-    try:
-        from booking_agent.graph import create_booking_workflow
-        app.state.workflow = create_booking_workflow()
-        logger.info("Workflow loaded successfully")
-    except ImportError as e:
-        logger.warning(f"Workflow not available - running in API-only mode: {str(e)}")
-        app.state.workflow = None
+    # No workflow needed - using stateless handler
+    logger.info("Using stateless webhook handler")
     
     yield
     
@@ -114,25 +108,22 @@ async def webhook_handler(
         }
         metrics["active_threads"] = len(active_threads)
         
-        # Process through workflow if available
-        if hasattr(app.state, "workflow") and app.state.workflow:
-            try:
-                # Run workflow asynchronously
-                result = await asyncio.create_task(
-                    process_through_workflow(
-                        app.state.workflow,
-                        webhook_request
-                    )
-                )
-                
-                response_message = result.get("response", "Message received and being processed")
-                
-            except Exception as e:
-                logger.error(f"Workflow processing error: {str(e)}", exc_info=True)
-                response_message = "Message received, processing will continue"
-        else:
-            logger.warning("Workflow not available, acknowledging receipt only")
-            response_message = "Message received successfully"
+        # Process through stateless handler
+        try:
+            from stateless_booking import handle_webhook_message
+            
+            # Prepare data for stateless handler
+            webhook_data = {
+                "phone": webhook_request.phone,
+                "message": webhook_request.message
+            }
+            
+            result = await handle_webhook_message(webhook_data)
+            response_message = result.get("message", "Message processed")
+            
+        except Exception as e:
+            logger.error(f"Stateless handler error: {str(e)}", exc_info=True)
+            response_message = "An error occurred processing your message"
         
         return WebhookResponse(
             status="success",
@@ -153,62 +144,7 @@ async def webhook_handler(
         )
 
 
-async def process_through_workflow(workflow, webhook_request: WebhookRequest) -> dict:
-    """
-    Process the webhook request through the LangGraph workflow.
-    
-    Args:
-        workflow: The compiled LangGraph workflow
-        webhook_request: The incoming webhook request
-        
-    Returns:
-        dict: Processing result
-    """
-    # Import message types
-    from langchain_core.messages import HumanMessage
-    
-    # Prepare initial state with all required fields
-    initial_state = {
-        "messages": [HumanMessage(content=webhook_request.message)],
-        "thread_id": webhook_request.thread_id,
-        "customer_name": None,
-        "customer_goal": None,
-        "customer_pain_point": None,
-        "customer_budget": None,
-        "customer_email": None,
-        "preferred_day": None,
-        "preferred_time": None,
-        "available_slots": None,
-        "collection_step": None,
-        "language": None,
-        "current_step": "triage",
-        "is_spam": False,
-        "validation_errors": [],
-        "booking_result": None
-    }
-    
-    # Invoke workflow with increased recursion limit
-    config = {
-        "configurable": {"thread_id": webhook_request.thread_id},
-        "recursion_limit": 100  # Increased from default 50 to handle complex conversations
-    }
-    result = await workflow.ainvoke(initial_state, config)
-    
-    # Extract response from result
-    # Look for the last AI message in the messages list
-    response_message = "Processing complete"
-    if result.get("messages"):
-        for msg in reversed(result["messages"]):
-            if hasattr(msg, "content") and getattr(msg, "__class__", None).__name__ == "AIMessage":
-                response_message = msg.content
-                break
-    
-    return {
-        "response": response_message,
-        "booking_result": result.get("booking_result"),
-        "is_spam": result.get("is_spam", False),
-        "validation_errors": result.get("validation_errors", [])
-    }
+# REMOVED - No longer using workflow approach
 
 
 @app.get("/health", response_model=HealthResponse)
