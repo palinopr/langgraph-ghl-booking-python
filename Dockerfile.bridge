@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements-bridge.txt .
+RUN pip install --no-cache-dir -r requirements-bridge.txt
+
+# Copy bridge server
+COPY bridge_server.py .
+
+# Expose port (Railway will set PORT env var)
+EXPOSE 8000
+
+# Run the bridge server
+CMD ["python", "bridge_server.py"]
