@@ -121,7 +121,7 @@ def detect_language(text: str) -> str:
     text_lower = text.lower()
     spanish_count = sum(1 for indicator in spanish_indicators if indicator in text_lower)
     
-    return "es" if spanish_count >= 2 else "en"
+    return "es" if spanish_count >= 1 else "en"
 
 
 def get_response_template(step: str, language: str) -> str:

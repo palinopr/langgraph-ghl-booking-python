@@ -114,21 +114,11 @@ async def webhook_handler(
         # Log initial state for debugging
         logger.info(f"Initial state current_step: {initial_state['current_step']}")
         
-        # Stream results to see what's happening
-        results = []
-        async for chunk in booking_workflow.astream(initial_state, config):
-            logger.info(f"Workflow chunk: {list(chunk.keys())}")
-            results.append(chunk)
-            if len(results) > 10:  # Safety check
-                logger.warning("Too many chunks, breaking")
-                break
-        
-        # Get final result
-        result = initial_state.copy()
-        for chunk in results:
-            for node, node_result in chunk.items():
-                if node_result:
-                    result.update(node_result)
+        # Use invoke instead of astream to ensure complete execution
+        # This prevents GeneratorExit errors and ensures GHL messages are sent
+        logger.info("Invoking workflow synchronously...")
+        result = await booking_workflow.ainvoke(initial_state, config)
+        logger.info(f"Workflow completed with step: {result.get('current_step')}")
         
         # Extract response from result
         response_message = "Message received and processed"
