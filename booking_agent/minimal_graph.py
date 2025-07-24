@@ -1,4 +1,6 @@
-"""Minimal graph wrapper for LangGraph deployment."""
+"""Minimal graph wrapper for LangGraph deployment.
+Version 2.1.0 - Stateless handler with proper StateGraph.
+"""
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Any
 import asyncio

@@ -97,7 +97,7 @@ async def health_check():
     """Health check endpoint for monitoring."""
     return {
         "status": "ok",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "handler": "stateless"
     }
 
@@ -106,7 +106,7 @@ async def root():
     """Root endpoint with API information."""
     return {
         "service": "WhatsApp Booking Webhook (STATELESS)",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "endpoints": {
             "webhook": "/webhook",
             "health": "/health"
