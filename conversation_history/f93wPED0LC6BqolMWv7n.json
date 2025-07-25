@@ -1,0 +1,62 @@
+[
+  {
+    "role": "customer",
+    "content": "Hi, I'm Sarah",
+    "timestamp": "2025-07-25T04:33:26.910825",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "ai",
+    "content": "Hello Sarah, it's great to meet you! How can I assist you with AI automation today?",
+    "timestamp": "2025-07-25T04:33:30.613037",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "customer",
+    "content": "What's my name?",
+    "timestamp": "2025-07-25T04:33:31.527817",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "ai",
+    "content": "Your name is Sarah. How may I assist you with your automation needs?",
+    "timestamp": "2025-07-25T04:33:35.043706",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "customer",
+    "content": "I want to automate my inventory management",
+    "timestamp": "2025-07-25T04:33:36.178359",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "ai",
+    "content": "Automating inventory management can streamline your operations and reduce errors. Could you tell me more about your current inventory process and what specific challenges you're facing?",
+    "timestamp": "2025-07-25T04:33:39.828012",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "customer",
+    "content": "My budget is around $500 per month",
+    "timestamp": "2025-07-25T04:33:40.733825",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "ai",
+    "content": "With a budget of $500 per month, our AI Workflow Automation service could be a great fit to help manage your inventory. Could you please specify how many inventory items you handle and the frequency of updates you require?",
+    "timestamp": "2025-07-25T04:33:44.892066",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "customer",
+    "content": "Can you remind me what we discussed?",
+    "timestamp": "2025-07-25T04:33:45.785568",
+    "messageType": "WhatsApp"
+  },
+  {
+    "role": "ai",
+    "content": "Certainly, Sarah. We discussed the possibility of automating your inventory management within your budget of $500 per month. Our AI Workflow Automation service could be a suitable solution for you.",
+    "timestamp": "2025-07-25T04:33:49.920245",
+    "messageType": "WhatsApp"
+  }
+]
