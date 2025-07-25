@@ -1,10 +1,16 @@
 {
-  "dependencies": ["."],
+  "python_version": "3.11",
+  "dependencies": ["./requirements.txt"],
   "graphs": {
-    "agent": "./booking_agent/minimal_graph.py:booking_graph"
+    "sales_agent": "./agents/salesAgentGraph.js"
   },
-  "env": ".env",
-  "http": {
-    "app": "./booking_agent/webapp.py:app"
+  "env": {
+    "OPENAI_API_KEY": "",
+    "GHL_API_KEY": "",
+    "GHL_LOCATION_ID": "",
+    "GHL_CALENDAR_ID": "",
+    "LANGSMITH_API_KEY": "",
+    "LANGSMITH_PROJECT": "outlet-media-bot",
+    "LANGCHAIN_TRACING_V2": "true"
   }
 }
