@@ -18,7 +18,8 @@ class MessageProcessor:
         self.ai_engine = AIConversationEngine()
     
     @traceable(name="process_message", run_type="chain")
-    def process_message(self, message: str, step: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_message(self, message: str, step: str, language: str, 
+                       state: Dict[str, Any], conversation_history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Process a single message based on current step.
         
@@ -26,29 +27,31 @@ class MessageProcessor:
             Dict with next_step, updates, and response
         """
         # Use AI engine for ALL processing
-        return asyncio.run(self._process_with_ai(message, step, language, state))
+        return await self._process_with_ai(message, step, language, state, conversation_history)
     
-    async def _process_with_ai(self, message: str, step: str, language: str, state: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_with_ai(self, message: str, step: str, language: str, 
+                              state: Dict[str, Any], conversation_history: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Process message using AI engine."""
-        # Build conversation history from state
-        conversation_history = []
-        
-        # Add previous exchanges if available
-        if state.get("customer_name"):
-            conversation_history.append({"role": "ai", "content": "What's your name?"})
-            conversation_history.append({"role": "customer", "content": state["customer_name"]})
-        
-        if state.get("customer_goal"):
-            conversation_history.append({"role": "ai", "content": "What specific goals are you looking to achieve?"})
-            conversation_history.append({"role": "customer", "content": state["customer_goal"]})
+        # Use real conversation history if provided, otherwise build from state
+        if conversation_history is None:
+            conversation_history = []
             
-        if state.get("customer_pain_point"):
-            conversation_history.append({"role": "ai", "content": "What's the biggest challenge you're facing?"})
-            conversation_history.append({"role": "customer", "content": state["customer_pain_point"]})
+            # Add previous exchanges if available
+            if state.get("customer_name"):
+                conversation_history.append({"role": "ai", "content": "What's your name?"})
+                conversation_history.append({"role": "customer", "content": state["customer_name"]})
             
-        if state.get("customer_budget"):
-            conversation_history.append({"role": "ai", "content": "What's your monthly marketing budget?"})
-            conversation_history.append({"role": "customer", "content": str(state["customer_budget"])})
+            if state.get("customer_goal"):
+                conversation_history.append({"role": "ai", "content": "What specific goals are you looking to achieve?"})
+                conversation_history.append({"role": "customer", "content": state["customer_goal"]})
+                
+            if state.get("customer_pain_point"):
+                conversation_history.append({"role": "ai", "content": "What's the biggest challenge you're facing?"})
+                conversation_history.append({"role": "customer", "content": state["customer_pain_point"]})
+                
+            if state.get("customer_budget"):
+                conversation_history.append({"role": "ai", "content": "What's your monthly marketing budget?"})
+                conversation_history.append({"role": "customer", "content": str(state["customer_budget"])})
         
         # Get AI response
         ai_result = await self.ai_engine.process_message(

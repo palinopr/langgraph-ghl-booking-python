@@ -154,6 +154,62 @@ class GHLStateManager:
                     logger.error(f"Failed to update contact: {resp.status} - {error}")
                     return False
     
+    @traceable(name="get_conversation_history", run_type="tool")
+    async def get_conversation_history(self, contact_id: str, limit: int = 10) -> list[Dict[str, Any]]:
+        """Get conversation history for a contact."""
+        async with aiohttp.ClientSession() as session:
+            # First, find the conversation ID for this contact
+            search_url = f"{self.base_url}/conversations/search"
+            search_params = {
+                "locationId": self.location_id,
+                "contactId": contact_id,
+                "limit": 1
+            }
+            
+            async with session.get(search_url, headers=self.headers, params=search_params) as resp:
+                if resp.status != 200:
+                    logger.error(f"Failed to find conversation: {resp.status}")
+                    return []
+                
+                data = await resp.json()
+                conversations = data.get("conversations", [])
+                
+                if not conversations:
+                    logger.info("No conversation history found")
+                    return []
+                
+                conversation_id = conversations[0].get("id")
+            
+            # Get messages from the conversation
+            messages_url = f"{self.base_url}/conversations/{conversation_id}/messages"
+            messages_params = {
+                "limit": limit,
+                "sort": "desc"  # Get most recent messages first
+            }
+            
+            async with session.get(messages_url, headers=self.headers, params=messages_params) as resp:
+                if resp.status != 200:
+                    logger.error(f"Failed to get messages: {resp.status}")
+                    return []
+                
+                data = await resp.json()
+                messages = data.get("messages", [])
+                
+                # Convert to our format and reverse to get chronological order
+                history = []
+                for msg in reversed(messages):
+                    # Skip if msg is not a dict
+                    if not isinstance(msg, dict):
+                        continue
+                    history.append({
+                        "role": "customer" if msg.get("direction") == "inbound" else "ai",
+                        "content": msg.get("body", msg.get("message", "")),
+                        "timestamp": msg.get("dateAdded", "")
+                    })
+                
+                logger.info(f"Retrieved {len(history)} messages from history")
+                return history
+    
     @traceable(name="send_message", run_type="tool")
     async def send_message(self, contact_id: str, message: str, message_type: str = "SMS") -> bool:
         """Send message via GHL Conversations API"""

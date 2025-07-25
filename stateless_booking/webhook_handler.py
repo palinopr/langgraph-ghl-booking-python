@@ -21,11 +21,17 @@ async def _process_webhook_core(phone: str, message: str, ghl: GHLStateManager,
     contact = await ghl.get_or_create_contact(phone)
     state = await ghl.get_conversation_state(contact["id"])
     
+    # Get conversation history for AI context
+    conversation_history = await ghl.get_conversation_history(contact["id"], limit=10)
+    
     # Process THIS message only
     current_step = state.get("booking_step", "greeting")
     language = state.get("language", "en")
     
-    result = processor.process_message(message, current_step, language, state)
+    # Pass conversation history to processor
+    result = await processor.process_message(
+        message, current_step, language, state, conversation_history
+    )
     next_step = result["next_step"]
     updates = result["updates"]
     response = result["response"]
