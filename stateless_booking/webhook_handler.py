@@ -36,7 +36,7 @@ async def _process_webhook_core(phone: str, message: str, ghl: GHLStateManager,
     await ghl.update_conversation_state(contact["id"], updates)
     
     # Send response and EXIT - NO LOOPS!
-    await ghl.send_message(contact["id"], response, "SMS")  # Use contact ID, not phone
+    await ghl.send_message(contact["id"], response, "WhatsApp")  # Use contact ID, not phone
     
     return {
         "status": "success",
