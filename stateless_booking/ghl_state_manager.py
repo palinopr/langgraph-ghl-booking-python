@@ -155,8 +155,27 @@ class GHLStateManager:
                     return False
     
     @traceable(name="send_message", run_type="tool")
-    async def send_message(self, phone: str, message: str) -> bool:
-        """Send message via GHL (placeholder - implement based on GHL SMS/WhatsApp API)."""
-        # In production, this would send via GHL's messaging API
-        logger.info(f"Sending to {phone}: {message}")
-        return True
+    async def send_message(self, contact_id: str, message: str, message_type: str = "SMS") -> bool:
+        """Send message via GHL Conversations API"""
+        async with aiohttp.ClientSession() as session:
+            # API Endpoint: POST /conversations/messages
+            url = f"{self.base_url}/conversations/messages"
+            
+            # Correct payload structure from GHL docs
+            body = {
+                "type": message_type,  # "SMS" or "WhatsApp"
+                "contactId": contact_id,
+                "locationId": self.location_id,
+                "message": message,
+                "attachments": []  # Optional attachments
+            }
+            
+            async with session.post(url, headers=self.headers, json=body) as resp:
+                if resp.status in [200, 201]:
+                    data = await resp.json()
+                    logger.info(f"Message sent successfully: {data.get('messageId')}")
+                    return True
+                else:
+                    error = await resp.text()
+                    logger.error(f"Failed to send message: {resp.status} - {error}")
+                    return False
